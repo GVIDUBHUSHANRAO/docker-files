@@ -1,0 +1,392 @@
+********Installing Docker in Red Hat Enterprise Linux(RHEL) distributions********
+[root@vidu ~]# yum install docker -y
+[root@vidu ~]# rpm -qa|grep docker
+[root@vidu ~]# systemctl status docker
+● docker.service - Docker Application Container Engine
+   Loaded: loaded (/usr/lib/systemd/system/docker.service; disabled; vendor preset: disabled)
+   Active: inactive (dead)
+     Docs: https://docs.docker.com
+[root@vidu ~]# systemctl start docker
+[root@vidu ~]# systemctl status docker
+● docker.service - Docker Application Container Engine
+   Loaded: loaded (/usr/lib/systemd/system/docker.service; disabled; vendor preset: disabled)
+   Active: active (running) since Sat 2022-08-20 04:29:54 UTC; 2s ago
+     Docs: https://docs.docker.com
+  Process: 32100 ExecStartPre=/usr/libexec/docker/docker-setup-runtimes.sh (code=exited, status=0/SUCCESS)
+  Process: 32098 ExecStartPre=/bin/mkdir -p /run/docker (code=exited, status=0/SUCCESS)
+ Main PID: 32103 (dockerd)
+    Tasks: 7
+   Memory: 31.1M
+   CGroup: /system.slice/docker.service
+           └─32103 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock --default-...
+[root@vidu ~]# systemctl enable docker
+Created symlink from /etc/systemd/system/multi-user.target.wants/docker.service to /usr/lib/systemd/system/docker.service.
+
+
+********Installing Docker in Debian distributions********
+root@vidu:~# apt-get update
+root@vidu:~# apt-get install docker.io -y
+root@vidu:~# which docker
+/usr/bin/docker
+root@vidu:~# systemctl status docker
+● docker.service - Docker Application Container Engine
+     Loaded: loaded (/lib/systemd/system/docker.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sat 2022-08-20 04:23:27 UTC; 9min ago
+TriggeredBy: ● docker.socket
+       Docs: https://docs.docker.com
+   Main PID: 2192 (dockerd)
+      Tasks: 7
+     Memory: 37.3M
+        CPU: 303ms
+     CGroup: /system.slice/docker.service
+             └─2192 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+
+
+********Docker commands********
+1. docker info - it shows all the information about docker
+Example: root@vidu:~# docker info|grep -i root
+
+2. docker search image_name - it shows public images on the Docker hub
+Example: root@vidu:~# docker search httpd
+
+3. docker images - to list all the images present in our local_machine/dockerhost
+
+4. docker pull [options] image_name[:tag]
+- pulls/downloads an image from Docker hub to our dockerhost.
+- In Docker hub, every image has its own repository and that repository contains all versions of the image. Tags are used to identify image versions inside a repository. If we don’t specify a tag Docker engine uses the :latest tag by default.
+Example: [root@vidu ~]# docker pull ubuntu == [root@vidu ~]# docker pull ubuntu:latest
+Example:2: [root@vidu ~]# docker pull ubuntu:18.04
+
+5. docker rmi [options] image_name[:tag]/image_id - to remove an image from dockerhost
+Example: [root@vidu ~]# docker rmi ubuntu:18.04
+Example:2: [root@vidu ~]# docker rmi df5de72bdb3b
+
+6. docker run [options] image_name [command] [arg...]
+- this command is used to create a container
+- there are some options that are used frequently, they are:
+a. -d/--detach : run container in background and print container ID
+b. -i/--interactive : keep STDIN open even if not attached
+c. -t/--tty : allocate a pseudo-TTY
+d. --name container_name or --name=container_name : to assign a name to the container
+e. -p/--publish p1:p2 => here p1 can be any port number, it will route traffic from end users to our dockerhost and p2 is the containers/application port number depends on image, it will route traffic from dockerhost to our container
+Examples:
+[root@vidu ~]# docker run -itd --name con2 -p 82:80 httpd:latest
+[root@vidu ~]# docker run -p 127.0.0.1:80:8080/tcp ubuntu bash
+f. -P/--publish-all : here we dont have to provide any port number, it will assign a random port number
+Example:
+[root@vidu ~]# docker run -itd --name con3 -P httpd:latest
+[root@vidu ~]# docker ps
+CONTAINER ID   IMAGE          COMMAND                  CREATED          STATUS          PORTS                                     NAMES
+686921e5b891   httpd:latest   "httpd-foreground"       2 days ago       Up 4 seconds    0.0.0.0:49153->80/tcp, :::49153->80/tcp   con3
+g. --expose : expose a port or a range of ports
+Example: [root@vidu ~]# docker run --expose 80 ubuntu bash
+h. -v/--volume source:target or -v target => to bind mount a volume
+Example: volumes/named volumes - volumes are stored in a part of the host file system which is managed by docker 
+[root@vidu ~]# docker run -itd --name con6 -P -v vol1:/usr/local/apache2/htdocs httpd:latest
+031d3fa4a2c2c8bf24521770dc372c15d78b991e0503e415f5af78c15d230b01
+[root@vidu ~]# docker inspect 031d3fa4a2c2
+.
+.
+ "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "vol1",
+                "Source": "/var/lib/docker/volumes/vol1/_data",
+                "Destination": "/usr/local/apache2/htdocs",
+                "Driver": "local",
+                "Mode": "z",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+.
+.
+[root@vidu ~]# cd /var/lib/docker/volumes/vol1/_data
+[root@vidu _data]# ls
+index.html
+Example:2: bind mount/host volumes - bind mounts may be stored anywhere on the host system, they may even be important system files or directories, non-docker processes on the dockerhost can modify them at any time
+[root@vidu ~]# mkdir /vidu
+[root@vidu ~]# docker run -itd -P -v /vidu:/usr/local/apache2/htdocs httpd:latest
+07254c2a652e77e708255151a0fef82f27289217738749d827a4fb119619e4c0
+[root@vidu ~]# cd /vidu
+[root@vidu vidu]# ls
+[root@vidu vidu~]# docker exec -it 07254c2a652e bash
+root@07254c2a652e:/usr/local/apache2# ls
+bin  build  cgi-bin  conf  error  htdocs  icons  include  logs  modules
+root@07254c2a652e:/usr/local/apache2# cd htdocs
+root@07254c2a652e:/usr/local/apache2/htdocs# ls
+root@07254c2a652e:/usr/local/apache2/htdocs# cat <<EOF > index.html
+> <html><body><h1>Bind volume!</h1></body></html>
+> EOF
+root@07254c2a652e:/usr/local/apache2/htdocs# ls
+index.html
+root@07254c2a652e:/usr/local/apache2/htdocs# cat index.html
+<html><body><h1>Bind volume!</h1></body></html>
+root@07254c2a652e:/usr/local/apache2/htdocs# exit
+exit
+[root@vidu vidu]# ls
+index.html
+[root@vidu vidu]# cat index.html
+<html><body><h1>Bind volume!</h1></body></html>
+Example:3: Anonymous volume 
+[root@vidu ~]# docker run -itd -v /app centos
+85dafe055ddbb0db4e5f971b375be6cd7d63f48b2051bd4e0c997f9fb40fe74a
+[root@vidu ~]# docker inspect 85dafe055ddb|grep volume
+                "Type": "volume",
+                "Source": "/var/lib/docker/volumes/ef25890a1e9fca463b51200e1260a69cf92c5e7205bafda91c81b7d5f794d70f/_data",
+[root@vidu ~]# docker exec -it 85dafe055ddb bash
+[root@85dafe055ddb /]# ls
+app  dev  home  lib64       media  opt   root  sbin  sys  usr
+bin  etc  lib   lost+found  mnt    proc  run   srv   tmp  var
+[root@85dafe055ddb /]# cd app
+[root@85dafe055ddb app]# ls
+[root@85dafe055ddb app]# touch file1 file2
+[root@85dafe055ddb app]# exit
+exit
+[root@vidu ~]# cd /var/lib/docker/volumes/ef25890a1e9fca463b51200e1260a69cf92c5e7205bafda91c81b7d5f794d70f/_data
+[root@vidu _data]# ls
+file1  file2
+i. --network=network_name : to create a container in a specific network
+[root@vidu ~]# docker run -itd --name=con7 --network=my-network-1 ubuntu
+- container can be runned in two modes:
+a. detached mode - in detached mode, container will run in background. The command to run a conatiner in detached mode is: docker run -itd image_name
+b. attached mode - in attached mode, container creation and login occurs at same time, in this mode you can see how container is created in frontground, it is used for troubleshooting, when you exit from attached mode container will be stopped. The command to run a container in attached mode is: docker run -it image_name
+
+7. docker ps [options]
+- to list the containers
+Example: [root@vidu ~]# docker ps => to list only running containers
+Example:2: [root@vidu ~]# docker ps -a => to list all containers(running and stopped)
+
+8. docker exec [options] container_id/container_name command [arg...]
+- there are some options that are used frequently, they are:
+a. -i/--interactive : keep STDIN open even if not attached
+b. -t/--tty : allocate a pseudo-TTY
+- this command is used to access the running container using bash shell
+Example: [root@vidu ~]# docker exec -it d4bafc0f6a0f /bin/bash or [root@vidu ~]# docker exec -it d4bafc0f6a0f bash
+- this command runs a new command in a running container
+Example: [root@vidu ~]# docker exec -it d4bafc0f6a0f touch /tmp/file1 or docker exec -d d4bafc0f6a0f touch /tmp/file1
+
+9. docker stop [options] container_id/container_name [container_id/container_name...]
+- this command stops a running container
+Example: [root@vidu ~]# docker stop 686921e5b891 82c6c01c576a
+
+10. docker kill [options] container_id/container_name [container_id/container_name...]
+- this command kills the container by stopping its execution immediately. The difference between ‘docker kill’ and ‘docker stop’ is that ‘docker stop’ gives the container time to shutdown gracefully, in situations when it is taking too much time for getting the container to stop, one can opt to kill it
+- the docker kill subcommand kills one or more containers. The main process inside the container is sent SIGKILL signal (default), or the signal that is specified with the --signal option
+
+11. docker restart [options] container_id/container_name [container_id/container_name...]
+- to reboot the container
+
+12. docker start [options] container_id/container_name [container_id/container_name...]
+- to start the stopped/shutdown container
+
+13. docker rm [options] container_id/container_name [container_id/container_name...]
+- to remove/delete the stopped container
+- you need to stop the container before removing
+
+14. docker stats [options] [container_id/container_name] [container_id/container_name...]
+- to check which container consuming how much cpu,ram
+- the docker stats command returns a live data stream for running containers
+Example: [root@vidu ~]# docker stats
+
+
+15. docker rename container_old_name container_new_name
+- to rename the container
+
+16. docker inspect [options] [container_id/container_name] [container_id/container_name...]
+- return information about specified container
+Example: to see the container ip-address
+[root@vidu ~]# docker inspect d4bafc0f6a0f|grep -i ipaddress
+
+17. docker commit [options] container_id/container_name [repository[:tag]]
+- to create an image from container
+- you can install all the required tools and applications in a containter and then take a image of that container. Now you can create actual containers in different environments using that image
+Example: [root@vidu ~]# docker commit d4bafc0f6a0f vidusdocker/ubuntu_git:1.0 - here "vidusdocker" is the username of my dockerhub registry
+
+18. docker login [options] [server]
+- login to a registry
+Example:
+[root@vidu ~]# docker login
+Login with your Docker ID to push and pull images from Docker Hub. If you don't have a Docker ID, head over to https://hub.docker.com to create one.
+Username: vidusdocker
+Password:
+WARNING! Your password will be stored unencrypted in /root/.docker/config.json.
+Configure a credential helper to remove this warning. See
+https://docs.docker.com/engine/reference/commandline/login/#credentials-store
+Login Succeeded
+Example:2:
+[root@vidu ~]# cat secret.txt|docker login --username vidusdocker --password-stdin
+WARNING! Your password will be stored unencrypted in /root/.docker/config.json.
+Configure a credential helper to remove this warning. See
+https://docs.docker.com/engine/reference/commandline/login/#credentials-store
+Login Succeeded
+
+19. docker logout [server]
+- to logout from registry
+Example:
+[root@vidu ~]# cat /root/.docker/config.json
+{
+        "auths": {
+                "https://index.docker.io/v1/": {
+                        "auth": "dmlkdXNkb2NrZXI6SWxvdmViYmFhZG1vbmFAMTIz"
+                }
+        }
+}
+[root@vidu ~]# docker logout
+Removing login credentials for https://index.docker.io/v1/
+[root@vidu ~]# cat /root/.docker/config.json
+{
+        "auths": {}
+}
+
+20. docker push [options] image_name[:tag]
+- push an image or a repository to a registry
+Example: [root@vidu ~]# docker push vidusdocker/ubuntu_git:1.0
+
+21. docker logs [options] container_name/container_id
+- fetch the logs of a container
+- the docker logs command batch-retrieves logs present at the time of execution
+Example:
+[root@vidu ~]# docker run -itd --name con2 -p 82:80 httpd:latest
+- open port 82 in inbound rules of security group of dockerhost
+- visit httpd webserver using URL: http://13.127.142.112:82
+[root@vidu ~]# docker logs con2
+--
+--
+103.99.110.238 - - [22/Aug/2022:14:24:06 +0000] "GET / HTTP/1.1" 200 45
+Example:2: retrieve logs until a specific point in time
+[root@vidu ~]# docker run -d --name test busybox sh -c "while true; do $(echo date); sleep 1; done"
+[root@vidu ~]# docker logs -f --until=2s test
+
+22. docker network command
+- to manage networks
+- you can use the following child commands to create, inspect, list, remove, prune, connect, and disconnect networks
+a. docker network create [options] network_name
+- to create a new network
+- the DRIVER accepts bridge or overlay which are the built-in network drivers. If you have installed a third party or your own custom network driver you can specify that DRIVER here also. If you don’t specify the --driver option, the command automatically creates a bridge network for you. When you install Docker Engine it creates a bridge network automatically. This network corresponds to the docker0 bridge that Engine has traditionally relied on. When you launch a new container with docker run it automatically connects to this bridge network. You cannot remove this default bridge network, but you can create new ones using the network create command
+- on a bridge network you can only create a single subnet
+Example:
+[root@vidu ~]# docker network create \
+> --driver=bridge \
+> --subnet=172.28.0.0/16 \
+> --ip-range=172.28.5.0/24 \
+> --gateway=172.28.5.254 \
+> my-network-1
+b. docker network ls [options]
+- lists all the networks the Engine daemon knows about. This includes the networks that span across multiple hosts in a cluster
+Examples:
+[root@vidu ~]# docker network ls
+[root@vidu ~]# docker network ls --no-trunc
+[root@vidu ~]# docker network ls --filter driver=bridge
+[root@vidu ~]# docker network ls --filter id=95e74588f40d
+[root@vidu ~]# docker network ls -f "label=usage"
+[root@vidu ~]# docker network ls --filter name=foobar
+[root@vidu ~]# docker network ls --filter scope=swarm
+[root@vidu ~]# docker network ls --filter scope=local
+[root@vidu ~]# docker network ls --filter type=custom
+c. docker network inspect [options] network_name/network_id [network_name...]
+- returns information about one or more networks. By default, this command renders all results in a JSON object
+Example:
+[root@vidu ~]# docker network inspect e3a82abb
+d. docker network connect [options] network_name container_name/container_id
+- connects a container to a network. You can connect a container by name or by ID. Once connected, the container can communicate with other containers in the same network
+Example: to connect a running container to a network
+[root@vidu ~]# docker network connect multi-host-network container1
+Example:2: to specify the IP address you want to be assigned to the container’s interface
+[root@vidu ~]# docker network connect --ip 10.10.36.122 multi-host-network container2
+e. docker network disconnect [options] network_name container_name/container_id
+- disconnects a container from a network. The container must be running to disconnect it from the network
+Example:
+[root@vidu ~]# docker network disconnect multi-host-network container1
+f. docker network prune [options]
+- remove all unused networks. Unused networks are those which are not referenced by any containers
+Examples:
+[root@vidu ~]# docker network prune
+[root@vidu ~]# docker network prune --force --filter until=5m
+g. docker network rm network_id/network_name [network...]
+- removes one or more networks by name or identifier. To remove a network, you must first disconnect any containers connected to it
+[root@vidu ~]# docker network rm 3695c422697f my-network
+23. docker build [options] path | url | -
+- There are two ways to create our own customized image,
+a. From container - command: docker commit container_id/container_name image_name[:tag]
+b. From image - using Dockerfile
+[* Dockerfile: 
+A Dockerfile is a text document that contains all the commands a user could call on the command line to assemble an image. Using docker build users can create an automated build that executes several command-line instructions in succession
+* Format of the Dockerfile: 
+# Comment
+INSTRUCTION arguments 
+- The instruction is not case-sensitive. However, convention is for them to be UPPERCASE to distinguish them from arguments more easily
+- Docker runs instructions in a Dockerfile in order. A Dockerfile must begin with a FROM instruction. This may be after parser directives, comments, and globally scoped ARGs. The FROM instruction specifies the Parent Image from which you are building. FROM may only be preceded by one or more ARG instructions, which declare arguments that are used in FROM lines in the Dockerfile
+- Docker treats lines that begin with # as a comment
+* Dockerfile instructions:
+1. FROM [--platform=<platform>] image[:tag] [AS <name>]
+- to provide the base image details
+- the FROM instruction initializes a new build stage and sets the Base Image for subsequent instructions
+- ARG is the only instruction that may precede FROM in the Dockerfile
+
+2.
+RUN command (shell form)
+RUN ["executable", "param1", "param2"] (exec form)
+- the RUN instruction will execute any commands in a new layer on top of the current image and commit the results. The resulting committed image will be used for the next step in the Dockerfile
+- to execute any commands inside intermediate container from the old stage image
+- RUN is a image build step
+- RUN actually runs a command and commits the result
+
+3.
+CMD ["executable","param1","param2"] (exec form, this is the preferred form)
+CMD ["param1","param2"] (as default parameters to ENTRYPOINT)
+CMD command param1 param2 (shell form)
+- there can only be one CMD instruction in a Dockerfile. If you list more than one CMD then only the last CMD will take effect
+- the main purpose of a CMD is to provide defaults for an executing container. These defaults can include an executable, or they can omit the executable, in which case you must specify an ENTRYPOINT instruction as well
+- if CMD is used to provide default arguments for the ENTRYPOINT instruction, both the CMD and ENTRYPOINT instructions should be specified with the JSON array format
+
+4. LABEL <key>=<value> <key>=<value> <key>=<value> ...
+- The LABEL instruction adds metadata to an image. A LABEL is a key-value pair. To include spaces within a LABEL value, use quotes and backslashes as you would in command-line parsing
+
+5. EXPOSE port[/protocol] [port/protocol...]
+- the EXPOSE instruction informs Docker that the container listens on the specified network ports at runtime. You can specify whether the port listens on TCP or UDP, and the default is TCP if the protocol is not specified
+- actually it wont open/expose any port, it will just provide information about which port we should open externally and you should use -P or-p options in docker run command while creating container
+
+6. ENV key=value ... or ENV key value
+- the ENV instruction sets the environment variable <key> to the value <value>
+- like command line parsing, quotes and backslashes can be used to include spaces within values
+
+7. ADD [--chown=<user>:<group>] <src>... <dest> or ADD [--chown=<user>:<group>] ["<src>",... "<dest>"]
+- the ADD instruction copies new files, directories or remote file URLs from <src> and adds them to the filesystem of the image at the path <dest>
+- if <src> is a local tar archive in a recognized compression format (identity, gzip, bzip2 or xz) then it is unpacked as a directory. Resources from remote URLs are not decompressed. When a directory is copied or unpacked, it has the same behavior as tar -x
+
+8. COPY [--chown=<user>:<group>] <src>... <dest> or COPY [--chown=<user>:<group>] ["<src>",... "<dest>"]
+- the COPY instruction copies new files or directories from <src> and adds them to the filesystem of the container at the path <dest>
+- it will only copy from local not from remote(any URL using internet)
+- can't auto-extract zip files after copy
+
+9.
+ENTRYPOINT ["executable", "param1", "param2"] (exec form)
+ENTRYPOINT command param1 param2 (shell form)
+- an ENTRYPOINT allows you to configure a container that will run as an executable
+- the difference between CMD and ENTRYPOINT is : Using CMD we can override the arguments/CMD instructions but using ENTRYPOINT we can't override
+
+10. VOLUME
+- it will make sure that the anonymous volume is created in your container
+- the value can be a JSON array, VOLUME ["/var/log/"], or a plain string with multiple arguments, such as VOLUME /var/log or VOLUME /var/log /var/db
+
+11. USER <user>[:<group>] or USER <UID>[:<GID>]
+- the USER instruction sets the user name (or UID) and optionally the user group (or GID) to use as the default user and group for the remainder of the current stage. The specified user is used for RUN instructions and at runtime, runs the relevant ENTRYPOINT and CMD commands
+- it will make sure that application/container is started by particular user
+
+12. WORKDIR /path/to/workdir
+- the WORKDIR instruction sets the working directory for any RUN, CMD, ENTRYPOINT, COPY and ADD instructions that follow it in the Dockerfile
+- to make any folder as default(pwd) folder in container
+
+13. ARG <name>[=<default value>]
+- The ARG instruction defines a variable that users can pass at build-time to the builder with the docker build command using the --build-arg <varname>=<value> flag. If a user specifies a build argument that was not defined in the Dockerfile, the build outputs a warning
+]
+- the docker build command builds Docker images from a Dockerfile and a “context”. A build’s context is the set of files located in the specified PATH or URL
+- the URL parameter can refer to three kinds of resources: Git repositories, pre-packaged tarball contexts and plain text files
+- command should/can run inside the container right so using base image a container is created and then it runs command and creates a new image, thus in every step a new image is created and finally every image and container created in this process is deleted except for final image
+Examples:
+docker build .
+docker build -t vieux/apache:2.0 .
+
+
+
